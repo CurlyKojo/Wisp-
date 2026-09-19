@@ -1,0 +1,4 @@
+# Wisp's face. Nothing here talks to the network.
+pygame>=2.5
+cairosvg>=2.7      # pre-renders the layers at startup; not used per frame
+Pillow>=10.0       # sprite sheets and GIF export only

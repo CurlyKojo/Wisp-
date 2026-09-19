@@ -1,0 +1,91 @@
+--- a/agent.py	2026-09-19 11:14:14.993932937 +0000
++++ b/agent.py	2026-09-19 11:14:15.007694555 +0000
+@@ -46,6 +46,12 @@
+ # --- WEB SEARCH (Using your working import) ---
+ from duckduckgo_search import DDGS 
+ 
++# --- WISP FACE ---
++# Animated face, rendered by a separate process (see integration/README.md in
++# the wisp repo). Set WISP=0 to fall back to the built-in PNG faces.
++from wisp_bridge import WispBridge
++WISP_ENABLED = os.environ.get("WISP", "1") != "0"
++
+ # =========================================================================
+ # 1. CONFIGURATION & CONSTANTS
+ # =========================================================================
+@@ -275,8 +281,18 @@
+         
+         self.exit_button = ttk.Button(master, text="Exit & Save", command=self.safe_exit)
+ 
+-        self.load_animations()
+-        self.update_animation() 
++        # --- WISP FACE ---
++        self.wisp = WispBridge(enabled=WISP_ENABLED, on_key=self._wisp_key)
++        if self.wisp.enabled:
++            # Wisp owns the display, so this window steps aside. Tk keeps
++            # running (its event loop drives set_state and the TTS queue), it
++            # just isn't on screen -- which is why the face forwards RETURN
++            # and SPACE back to us below.
++            master.attributes('-fullscreen', False)
++            master.withdraw()
++        else:
++            self.load_animations()
++            self.update_animation() 
+         
+         threading.Thread(target=self.safe_main_execution, daemon=True).start()
+ 
+@@ -295,6 +311,7 @@
+             return
+         self.exiting = True
+         print("\n--- SHUTDOWN SEQUENCE ---", flush=True)
++        self.wisp.close()
+         if self.current_audio_process:
+             try:
+                 self.current_audio_process.terminate()
+@@ -350,6 +367,13 @@
+                 self.recording_active.set() 
+                 self.ptt_event.set()
+ 
++    def _wisp_key(self, name):
++        """Keys pressed on the Wisp window, bounced back onto the Tk thread."""
++        if name == "ptt":
++            self.master.after(0, self.handle_ptt_toggle)
++        elif name == "interrupt":
++            self.master.after(0, self.handle_speaking_interrupt)
++
+     def handle_speaking_interrupt(self, event=None):
+         if self.current_state == BotStates.SPEAKING or self.current_state == BotStates.THINKING:
+             self.interrupted.set()
+@@ -400,6 +424,10 @@
+         self.master.after(speed, self.update_animation)
+ 
+     def set_state(self, state, msg="", cam_path=None):
++        # Straight through, not via master.after, so the face reacts now
++        # rather than whenever Tk next gets a slice.
++        self.wisp.set_state(state, msg)
++
+         def _update():
+             if msg: print(f"[STATE] {state.upper()}: {msg}", flush=True)
+             if self.current_state != state:
+@@ -1002,18 +1030,21 @@
+                     audio_chunk = np.frombuffer(data, dtype=np.int16)
+                     if len(audio_chunk) > 0:
+                         self.current_volume = np.max(np.abs(audio_chunk))
++                        self.wisp.set_volume(self.current_volume)
+                         if use_native_rate:
+                             num_samples = int(len(audio_chunk) * (native_rate / PIPER_RATE))
+                             audio_chunk = scipy.signal.resample(audio_chunk, num_samples).astype(np.int16)
+                         stream.write(audio_chunk.tobytes())
+                     else:
+                         self.current_volume = 0
++                        self.wisp.set_volume(0)
+                 time.sleep(0.5) 
+                     
+         except Exception as e:
+             print(f"Audio Error: {e}")
+         finally:
+             self.current_volume = 0 
++            self.wisp.set_volume(0)
+             if self.current_audio_process:
+                 if self.current_audio_process.stdout: self.current_audio_process.stdout.close()
+                 if self.current_audio_process.poll() is None: self.current_audio_process.terminate()
