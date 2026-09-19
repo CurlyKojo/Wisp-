@@ -4,6 +4,27 @@ A small light that knows your stuff. This repo makes it move.
 
 ![Wisp cycling through all six states](docs/demo.gif)
 
+<table>
+<tr>
+<td align="center"><img src="docs/states/idle.gif" width="230"><br><b>idle</b><br>default</td>
+<td align="center"><img src="docs/states/listening.gif" width="230"><br><b>listening</b><br>wake word / button</td>
+<td align="center"><img src="docs/states/thinking.gif" width="230"><br><b>thinking</b><br>LLM generating</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/states/speaking.gif" width="230"><br><b>speaking</b><br>TTS playing</td>
+<td align="center"><img src="docs/states/happy.gif" width="230"><br><b>happy</b><br>task done</td>
+<td align="center"><img src="docs/states/sleepy.gif" width="230"><br><b>sleepy</b><br>idle 10+ min</td>
+</tr>
+</table>
+
+Each of those is a real seamless loop straight out of `export_sprites.py` — what
+you see is what the sprite sheets contain. The same tour on the 1.28" round
+display:
+
+<p align="center"><img src="docs/demo-round.gif" width="240"></p>
+
+Regenerate them all with `python tools/make_demos.py`.
+
 Wisp is the face for a Raspberry Pi 5 voice assistant: a glowing teal flame
 with two eyes, six states, running fullscreen on a 5" 800x480 DSI panel at
 30 fps. The character design is finished and lives in `assets/` — everything
