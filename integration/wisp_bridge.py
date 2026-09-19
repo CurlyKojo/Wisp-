@@ -65,6 +65,8 @@ class WispBridge:
     """Everything agent.py needs, behind four methods."""
 
     def __init__(self, socket_path=None, enabled=True, on_key=None):
+        # deploy/install.sh puts the socket under /run/wisp and exports this.
+        socket_path = socket_path or os.environ.get("WISP_SOCKET")
         self.enabled = bool(enabled) and _AVAILABLE
         self._link = None
         self._happy_timer = None

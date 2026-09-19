@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wisp-face"
+version = "1.0.0"
+description = "Animated companion face for a Raspberry Pi voice assistant"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+keywords = ["raspberry-pi", "voice-assistant", "pygame", "animation", "gc9a01"]
+
+# Nothing here touches the network at runtime.
+dependencies = [
+    "pygame>=2.5",
+    "cairosvg>=2.7",   # pre-renders layers at startup only
+    "Pillow>=10.0",    # sprite sheet and GIF export only
+]
+
+[project.optional-dependencies]
+dev = ["pyflakes", "numpy"]   # numpy is test-only, for image diffing
+
+[project.scripts]
+wisp-face = "wisp_face.app:main"
+wisp-round = "wisp_face.round_face:main"
+
+[project.urls]
+Homepage = "https://github.com/CurlyKojo/Wisp-"
+
+[tool.setuptools]
+# Install from a checkout (`pip install -e .`). wisp_face reads the character
+# geometry out of assets/, which lives beside the package rather than inside
+# it, so the checkout has to stay put. Set WISP_ASSETS to point elsewhere.
+packages = ["wisp_face"]

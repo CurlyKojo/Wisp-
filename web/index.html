@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wisp</title>
+<meta name="description" content="A small light that knows your stuff. An animated companion face for a Raspberry Pi voice assistant.">
+<meta property="og:title" content="Wisp">
+<meta property="og:description" content="A small light that knows your stuff. An animated companion face for a Raspberry Pi voice assistant.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Palette is the asset pack's, verbatim. */
+  :root {
+    --ink:   #0E1320;
+    --dusk:  #161D2E;
+    --glow:  #7FE3D6;
+    --core:  #F4FFFD;
+    --deep:  #1F8F86;
+    --ember: #FFB86B;
+
+    --text:  #C9D4E4;
+    --muted: #7F8CA3;
+    --line:  rgba(127, 227, 214, 0.14);
+
+    --display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+    --body: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    --gutter: 16px;
+    --max: 1040px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  a { color: var(--glow); text-decoration-color: rgba(127,227,214,.35); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: var(--glow); }
+
+  .wrap { width: 100%; max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
+
+  h1, h2, h3 { font-family: var(--display); font-weight: 700; line-height: 1.12; margin: 0; letter-spacing: -0.015em; }
+  h1 { font-size: clamp(2.6rem, 9vw, 4.6rem); color: var(--core); }
+  h2 { font-size: clamp(1.5rem, 4.2vw, 2.1rem); color: var(--core); margin-bottom: .6rem; }
+  h3 { font-size: 1.05rem; font-weight: 500; color: var(--core); margin-bottom: .3rem; }
+  p  { margin: 0 0 1rem; }
+  .lede { font-size: clamp(1.05rem, 2.4vw, 1.25rem); color: var(--text); max-width: 60ch; }
+  .muted { color: var(--muted); }
+  code, .mono { font-family: var(--mono); font-size: .875em; }
+  code { color: var(--glow); background: rgba(127,227,214,.07); padding: .12em .4em; border-radius: 4px; }
+
+  section { padding: clamp(3rem, 9vw, 5.5rem) 0; border-top: 1px solid var(--line); }
+  section:first-of-type { border-top: 0; }
+
+  /* ---- hero ---- */
+
+  .hero { padding-top: clamp(2.5rem, 7vw, 4.5rem); padding-bottom: clamp(2rem, 5vw, 3rem); text-align: center; }
+  .hero h1 { margin-bottom: .5rem; }
+  .hero .lede { margin: 0 auto 2rem; }
+  .wake {
+    display: inline-block; font-family: var(--mono); font-size: .8rem;
+    color: var(--glow); border: 1px solid var(--line); border-radius: 999px;
+    padding: .3rem .85rem; margin-bottom: 1.4rem; letter-spacing: .04em;
+  }
+
+  /* ---- the sprite player ---- */
+
+  .stage-outer { position: relative; display: flex; justify-content: center; align-items: center; min-height: 300px; }
+  .stage {
+    position: relative;
+    width: 327px; height: 292px;
+    background-repeat: no-repeat;
+    image-rendering: auto;
+    transform-origin: center center;
+  }
+  .stage.loading::after {
+    content: "rendering…";
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    font-family: var(--mono); font-size: .8rem; color: var(--muted);
+  }
+  .glowpad {
+    position: absolute; left: 50%; top: 52%;
+    width: 480px; height: 480px; transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(127,227,214,.10) 0%, rgba(127,227,214,0) 68%);
+    pointer-events: none; z-index: -1;
+  }
+
+  .chips { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; margin: 1.8rem 0 .5rem; }
+  .chip {
+    font-family: var(--mono); font-size: .8rem;
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: .38rem .9rem; cursor: pointer;
+    transition: color .18s, border-color .18s, background .18s;
+  }
+  .chip:hover { color: var(--text); border-color: rgba(127,227,214,.3); }
+  .chip[aria-pressed="true"] { color: var(--ink); background: var(--glow); border-color: var(--glow); font-weight: 500; }
+  .chip .k { opacity: .5; margin-right: .45rem; }
+  .chip[aria-pressed="true"] .k { opacity: .55; }
+
+  .stage-note { font-family: var(--mono); font-size: .75rem; color: var(--muted); text-align: center; margin-top: .9rem; }
+
+  /* ---- generic bits ---- */
+
+  .grid { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .card { background: var(--dusk); border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem; }
+  .card p:last-child { margin-bottom: 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td { text-align: left; padding: .6rem .8rem .6rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--core); font-weight: 500; font-family: var(--display); white-space: nowrap; }
+  td.spec { font-family: var(--mono); font-size: .82rem; color: var(--glow); }
+
+  .stats { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: 1.5rem; }
+  .stat { background: var(--dusk); border: 1px solid var(--line); border-radius: 12px; padding: 1.1rem; }
+  .stat b { display: block; font-family: var(--display); font-size: 1.9rem; color: var(--glow); line-height: 1.1; font-weight: 700; }
+  .stat span { font-size: .82rem; color: var(--muted); }
+
+  .stack { list-style: none; padding: 0; margin: 1.2rem 0 0; font-family: var(--mono); font-size: .85rem; }
+  .stack li { padding: .55rem .9rem; border: 1px solid var(--line); border-radius: 8px; margin-bottom: .4rem; display: flex; justify-content: space-between; gap: 1rem; background: var(--dusk); }
+  .stack li span:last-child { color: var(--muted); font-family: var(--body); font-size: .85rem; text-align: right; }
+
+  .swatches { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); margin-top: 1.2rem; }
+  .sw { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .sw .dot { height: 54px; }
+  .sw .meta { padding: .55rem .7rem; font-family: var(--mono); font-size: .72rem; }
+  .sw .meta b { display: block; color: var(--core); font-weight: 500; }
+  .sw .meta span { color: var(--muted); }
+
+  .round-row { display: flex; gap: 2rem; align-items: center; flex-wrap: wrap; margin-top: 1.4rem; }
+  .round-row img { width: 240px; max-width: 60vw; border-radius: 50%; border: 1px solid var(--line); flex: none; }
+  .round-row div { flex: 1 1 260px; min-width: 0; }
+
+  pre {
+    background: var(--dusk); border: 1px solid var(--line); border-radius: 10px;
+    padding: 1rem 1.1rem; overflow-x: auto; font-family: var(--mono);
+    font-size: .82rem; line-height: 1.7; color: var(--text); margin: 1rem 0 0;
+  }
+  pre .c { color: var(--muted); }
+
+  .cta { display: inline-flex; align-items: center; gap: .55rem; background: var(--glow); color: var(--ink); font-weight: 500; text-decoration: none; padding: .7rem 1.25rem; border-radius: 999px; font-size: .95rem; }
+  .cta:hover { background: var(--core); }
+
+  footer { border-top: 1px solid var(--line); padding: 2.5rem 0 3.5rem; color: var(--muted); font-size: .85rem; }
+  footer p { margin-bottom: .4rem; }
+
+  @media (max-width: 520px) {
+    .stage-outer { min-height: 250px; }
+    .glowpad { width: 340px; height: 340px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .chip { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero wrap">
+  <div class="wake">Hey Wisp</div>
+  <h1>Wisp</h1>
+  <p class="lede">A small light that knows your stuff. The animated face for an
+  offline voice assistant — six states, 30&nbsp;fps, on a Raspberry&nbsp;Pi.</p>
+
+  <div class="stage-outer">
+    <div class="glowpad"></div>
+    <div id="stage" class="stage loading" role="img" aria-label="Wisp, animated"></div>
+  </div>
+
+  <div class="chips" id="chips"></div>
+  <p class="stage-note" id="note"></p>
+</header>
+
+<main>
+
+<section class="wrap">
+  <h2>Why it isn't just a flipbook</h2>
+  <p class="lede">The character ships as finished PNG frames — but the eyes are
+  baked into the body, so you can't blink with them.</p>
+  <p>So Wisp is split into layers rebuilt from the geometry source, and the
+  character is never redrawn — only re-composed. Each layer is rasterised
+  <em>once</em> at startup, cropped to its opaque bounds and cached to disk.
+  After that a frame is a fill and about eight blits.</p>
+
+  <ul class="stack">
+    <li><span>halo</span><span>scales 100→130% on the listening pulse</span></li>
+    <li><span>body</span><span>squashes and stretches on a win</span></li>
+    <li><span>tip flicker</span><span>drifts ±3px on a 1.2s loop</span></li>
+    <li><span>eyes</span><span>Y-scaled to blink — never an image swap</span></li>
+    <li><span>mouth</span><span>opened by live TTS volume</span></li>
+    <li><span>extras</span><span>sound rings, thinking dots, z's, brows, blush</span></li>
+  </ul>
+
+  <div class="stats">
+    <div class="stat"><b>0.44<span style="font-size:1rem"> ms</span></b><span>per frame, steady state</span></div>
+    <div class="stat"><b>~1.3%</b><span>of one CPU core at 30fps</span></div>
+    <div class="stat"><b>2</b><span>max channel error vs the reference art</span></div>
+    <div class="stat"><b>60</b><span>tests, spec pinned as assertions</span></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>The motion spec, exactly</h2>
+  <p>Every number below is quoted from the character's spec sheet and asserted
+  in the test suite. Change a constant and a test fails.</p>
+  <table>
+    <tbody>
+      <tr><th>Float</th><td class="spec">6px up and down · 3s ease-in-out</td></tr>
+      <tr><th>Blink</th><td class="spec">every 4–6s randomised · 120ms · eyes scaled to 0.1</td></tr>
+      <tr><th>Tip flicker</th><td class="spec">±3px · 1.2s loop</td></tr>
+      <tr><th>Listening</th><td class="spec">glow 100→130% · rings fade out every 0.8s</td></tr>
+      <tr><th>Thinking</th><td class="spec">3 dots, bottom to top · 0.4s each</td></tr>
+      <tr><th>Speaking</th><td class="spec">mouth driven by TTS volume</td></tr>
+      <tr><th>Happy</th><td class="spec">one squash-and-stretch on entry, then idle float</td></tr>
+      <tr><th>Sleepy</th><td class="spec">60% brightness · float slows to 5s · z's drift up</td></tr>
+      <tr><th>Transitions</th><td class="spec">~200ms eased cross-fade · no hard cuts</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="wrap">
+  <h2>What you're looking at</h2>
+  <p>This page isn't a video. It's playing the same sprite sheets the phone app
+  consumes, laid out from <code>sprites.json</code> — so if a loop hitched here,
+  it would hitch there. Each sheet runs for the least common multiple of
+  everything moving in that state, which is why the loops are different lengths.</p>
+  <div class="grid">
+    <div class="card">
+      <h3>Seamless by construction</h3>
+      <p class="muted">Listening's true cycle is 12s and sleepy's is 60s. Rather
+      than truncate and ship a sheet that jumps every repeat, their float is
+      stretched 4–7% to close the loop. Invisible; a jump isn't.</p>
+    </div>
+    <div class="card">
+      <h3>No blink in the sheets</h3>
+      <p class="muted">Blink is random every 4–6s. Baked into a 3s loop it stops
+      being a blink and becomes a tic, so it's left to the live renderer.</p>
+    </div>
+    <div class="card">
+      <h3>Fitted, not guessed</h3>
+      <p class="muted">The layout was solved against the original renders by
+      sweeping scale and offset — landing on scale 1.5 at (250, 48), with a mean
+      error of 0.03 out of 255.</p>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>And on the little round one</h2>
+  <p>A 1.28″ GC9A01 runs eyes-only off the same clock, so both screens blink at
+  the same instant.</p>
+  <div class="round-row">
+    <img src="demo-round.gif" alt="Wisp's eyes cycling through six states on a round display" loading="lazy" width="240" height="240">
+    <div>
+      <p>The driver situation on a Pi 5 is a dead end in three directions:
+      <span class="mono">luma.lcd</span> doesn't support GC9A01 at all, anything
+      built on <span class="mono">RPi.GPIO</span> can't work on a Pi 5, and the
+      drivers that turn up in searches are MicroPython.</p>
+      <p>The answer is the kernel's own <span class="mono">gc9a01</span> overlay,
+      which brings the panel up as an ordinary framebuffer — so it's a plain
+      RGB565 write, with no SPI library and nothing added to the dependency list.</p>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>Palette</h2>
+  <div class="swatches" id="swatches"></div>
+</section>
+
+<section class="wrap">
+  <h2>Run it</h2>
+<pre><span class="c"># preview it on your laptop — keys 1-6, M fakes the mouth</span>
+git clone https://github.com/CurlyKojo/Wisp-.git &amp;&amp; cd Wisp-
+pip install -e .
+wisp-face
+
+<span class="c"># on the Pi: venv, warm cache, systemd units</span>
+./deploy/install.sh --round</pre>
+  <p style="margin-top:1.6rem">
+    <a class="cta" href="https://github.com/CurlyKojo/Wisp-">Source on GitHub →</a>
+  </p>
+</section>
+
+</main>
+
+<footer class="wrap">
+  <p>Wisp runs fully offline. No network calls, on the device or in the assistant.</p>
+  <p class="muted">Code is MIT. The character — the artwork, the expressions, the
+  palette — is not; it stays with its author.</p>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var STATES = [
+    ["idle", "default"],
+    ["listening", "wake word"],
+    ["thinking", "generating"],
+    ["speaking", "talking"],
+    ["happy", "task done"],
+    ["sleepy", "10+ min idle"]
+  ];
+
+  var PALETTE = [
+    ["Ink", "#0E1320", "background, eyes"],
+    ["Dusk", "#161D2E", "cards, surfaces"],
+    ["Glow", "#7FE3D6", "the light"],
+    ["Core", "#F4FFFD", "hot centre"],
+    ["Deep teal", "#1F8F86", "body edge"],
+    ["Ember", "#FFB86B", "success only"]
+  ];
+
+  var stage = document.getElementById("stage");
+  var chipBox = document.getElementById("chips");
+  var note = document.getElementById("note");
+
+  // No point telling a phone to press number keys.
+  var HINT = (window.matchMedia && window.matchMedia("(hover: none)").matches)
+    ? "tap a state" : "press 1–6";
+  note.textContent = HINT;
+
+  // Swatches -------------------------------------------------------------
+  var sw = document.getElementById("swatches");
+  PALETTE.forEach(function (p) {
+    var el = document.createElement("div");
+    el.className = "sw";
+    el.innerHTML = '<div class="dot" style="background:' + p[1] + '"></div>' +
+      '<div class="meta"><b>' + p[0] + '</b><span>' + p[1] + '</span></div>';
+    sw.appendChild(el);
+  });
+
+  // Chips ----------------------------------------------------------------
+  var chips = {};
+  STATES.forEach(function (s, i) {
+    var b = document.createElement("button");
+    b.className = "chip";
+    b.type = "button";
+    b.setAttribute("aria-pressed", "false");
+    b.innerHTML = '<span class="k">' + (i + 1) + '</span>' + s[0];
+    b.title = s[1];
+    b.addEventListener("click", function () { pick(s[0], true); });
+    chipBox.appendChild(b);
+    chips[s[0]] = b;
+  });
+
+  // Player ---------------------------------------------------------------
+  var sheets = {};        // state -> {img, cols, rows, w, h, frames, fps}
+  var current = null;
+  var startedAt = 0;
+  var manual = false;
+  var tourAt = 0;
+  var TOUR_MS = 4200;
+  var reduced = window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function pick(name, byUser) {
+    if (!sheets[name]) return;
+    if (byUser) {
+      manual = true;
+      note.textContent = HINT;
+    }
+    if (current === name) return;
+    current = name;
+    startedAt = performance.now();
+    var s = sheets[name];
+    stage.style.backgroundImage = "url(" + s.img.src + ")";
+    stage.style.backgroundSize = (s.cols * s.w) + "px " + (s.rows * s.h) + "px";
+    stage.setAttribute("aria-label", "Wisp, " + name);
+    Object.keys(chips).forEach(function (k) {
+      chips[k].setAttribute("aria-pressed", String(k === name));
+    });
+  }
+
+  function frameAt(s, elapsed) {
+    if (reduced) return 0;
+    return Math.floor(elapsed / (1000 / s.fps)) % s.frames;
+  }
+
+  function tick(now) {
+    if (current) {
+      var s = sheets[current];
+      var f = frameAt(s, now - startedAt);
+      stage.style.backgroundPosition =
+        (-(f % s.cols) * s.w) + "px " + (-Math.floor(f / s.cols) * s.h) + "px";
+    }
+    if (!manual && !reduced && now - tourAt > TOUR_MS) {
+      tourAt = now;
+      var order = STATES.map(function (s) { return s[0]; })
+        .filter(function (n) { return sheets[n]; });
+      if (order.length) {
+        pick(order[(order.indexOf(current) + 1) % order.length]);
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function scaleStage() {
+    // Frames are a fixed pixel size, so scale the whole stage rather than
+    // resample the sheet.
+    if (!current || !sheets[current]) return;
+    var s = sheets[current];
+    var avail = stage.parentElement.clientWidth - 16;
+    var target = Math.min(avail, window.innerWidth <= 520 ? 280 : 400);
+    var k = Math.max(0.5, target / s.w);
+    stage.style.transform = "scale(" + k.toFixed(3) + ")";
+    stage.parentElement.style.minHeight = Math.round(s.h * k + 20) + "px";
+  }
+
+  fetch("sprites/sprites.json")
+    .then(function (r) { return r.json(); })
+    .then(function (man) {
+      var pending = man.states.length;
+      man.states.forEach(function (st) {
+        var img = new Image();
+        img.decoding = "async";
+        img.onload = function () {
+          sheets[st.state] = {
+            img: img,
+            cols: st.grid[0], rows: st.grid[1],
+            w: st.frame_size[0], h: st.frame_size[1],
+            frames: st.frames, fps: st.fps || man.fps || 20
+          };
+          if (!current) {
+            stage.classList.remove("loading");
+            stage.style.width = st.frame_size[0] + "px";
+            stage.style.height = st.frame_size[1] + "px";
+            pick(st.state);
+            scaleStage();
+            requestAnimationFrame(function (t) { tourAt = t; tick(t); });
+          }
+          if (--pending === 0 && reduced) {
+            note.textContent = "animation paused — you prefer reduced motion";
+          }
+        };
+        img.onerror = function () {
+          pending--;
+          if (!current && pending === 0) {
+            stage.classList.remove("loading");
+            note.textContent = "couldn't load the sprite sheets";
+          }
+        };
+        img.src = "sprites/" + st.sheet;
+      });
+    })
+    .catch(function () {
+      stage.classList.remove("loading");
+      note.textContent = "couldn't load sprites.json";
+    });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var i = "123456".indexOf(e.key);
+    if (i >= 0) { pick(STATES[i][0], true); e.preventDefault(); }
+  });
+
+  window.addEventListener("resize", scaleStage, { passive: true });
+})();
+</script>
+</body>
+</html>

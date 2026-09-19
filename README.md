@@ -30,6 +30,9 @@ with two eyes, six states, running fullscreen on a 5" 800x480 DSI panel at
 30 fps. The character design is finished and lives in `assets/` — everything
 here is animation.
 
+**[Play with it in a browser →](https://wisp-two-tau.vercel.app)** — that page
+runs the real exported sprite sheets, not a video.
+
 ```
 python run_face.py                    # windowed preview
 python run_face.py --fullscreen       # how it runs on the Pi
@@ -47,11 +50,20 @@ python run_face.py --fullscreen       # how it runs on the Pi
 ## Install
 
 ```bash
-pip install -r requirements.txt
+pip install -e .          # or: pip install -r requirements.txt
 ```
 
 Three dependencies: pygame, cairosvg (startup only), Pillow (sprite export
 only). On Raspberry Pi OS you may also need `sudo apt install libcairo2`.
+
+Installing gives you `wisp-face` and `wisp-round` on your PATH. Install it
+editable, or from the checkout — `wisp_face` reads the character out of
+`assets/`, which sits beside the package rather than inside it. `WISP_ASSETS`
+points it elsewhere if you need that.
+
+**On a Pi**, `./deploy/install.sh` does the whole thing — venv, warm cache and
+systemd units so the face comes back after a power cut. See
+[`deploy/README.md`](deploy/README.md).
 
 ## How it works
 
@@ -194,6 +206,9 @@ timing constant that doesn't do what it claims.
 python tests/run_all.py
 ```
 
+CI runs the same suite on 3.9, 3.11 and 3.13, and re-renders the demo GIFs to
+warn if the README's animations have drifted from the code.
+
 60 tests: the motion spec as assertions, the reference-render match, the
 agent↔face link end to end (real sockets, no mocks), the round display, and
 sprite-sheet seamlessness.
@@ -211,6 +226,15 @@ wisp_face/
   app.py          run loop, preview keys, IPC server
   ipc.py          stdlib-only duplex link to the assistant
 integration/      patch + bridge for be-more-agent
-tools/            layout calibration against the reference renders
+deploy/           install script + systemd units for the Pi
+tools/            layout calibration, demo rendering
+web/              the sprite-sheet player deployed to Vercel
 assets/           the asset pack, unmodified
 ```
+
+## Licence
+
+The code is MIT. **The Wisp character is not** — the artwork in `assets/` and
+the frames in `docs/` stay under their own terms, see
+[`assets/LICENSE.md`](assets/LICENSE.md). Swap `assets/` for your own artwork
+and the renderer is yours to use.

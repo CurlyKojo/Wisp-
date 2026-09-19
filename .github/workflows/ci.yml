@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 is what Raspberry Pi OS (bookworm) ships.
+        python-version: ["3.9", "3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install cairo
+        # cairosvg needs the system library; it only runs at startup, but the
+        # tests exercise that path on every state.
+        run: sudo apt-get update && sudo apt-get install -y libcairo2
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: python -m pyflakes wisp_face tests tools integration export_sprites.py run_face.py
+
+      - name: Test
+        # SDL has no display or sound card on a runner; run_all.py sets the
+        # dummy drivers itself, but be explicit so a direct run works too.
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: python tests/run_all.py
+
+  demos-are-current:
+    # The README embeds GIFs rendered from the code. If the motion changes and
+    # the demos aren't regenerated, the front page lies.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: sudo apt-get update && sudo apt-get install -y libcairo2
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Re-render the demos
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: python tools/make_demos.py
+      - name: Check they still match what's committed
+        run: |
+          if ! git diff --quiet -- docs; then
+            echo "::warning::docs/ GIFs differ from a fresh render."
+            echo "Run 'python tools/make_demos.py' and commit the result."
+            git diff --stat -- docs
+          else
+            echo "Demos are up to date."
+          fi

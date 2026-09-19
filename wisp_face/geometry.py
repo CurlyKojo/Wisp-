@@ -22,26 +22,45 @@ from . import palette
 
 CANVAS = (200, 240)  # the asset pack's viewBox, shared by every layer
 
-_SRC = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "assets", "source", "wisp_geometry.py",
-)
+_PKG = os.path.dirname(os.path.abspath(__file__))
+
+
+def _candidates():
+    """Where the asset pack might be, most specific first."""
+    env = os.environ.get("WISP_ASSETS")
+    if env:
+        yield os.path.join(env, "source", "wisp_geometry.py")
+    # Normal checkout: assets/ sits beside the package.
+    yield os.path.join(os.path.dirname(_PKG), "assets", "source",
+                       "wisp_geometry.py")
+    # Bundled beside the package, if someone vendors it that way.
+    yield os.path.join(_PKG, "assets", "source", "wisp_geometry.py")
+    yield os.path.join(os.getcwd(), "assets", "source", "wisp_geometry.py")
 
 
 def _load_source():
     """Import the asset pack's geometry file as a module."""
-    if not os.path.exists(_SRC):
-        raise FileNotFoundError(
-            f"Wisp geometry source not found at {_SRC}. "
-            "The asset pack's source/wisp_geometry.py is required."
-        )
-    spec = importlib.util.spec_from_file_location("wisp_geometry_src", _SRC)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    tried = []
+    for path in _candidates():
+        tried.append(path)
+        if os.path.exists(path):
+            spec = importlib.util.spec_from_file_location(
+                "wisp_geometry_src", path
+            )
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            mod.__wisp_source_path__ = path
+            return mod
+    raise FileNotFoundError(
+        "Wisp's geometry source (assets/source/wisp_geometry.py) is the "
+        "character's definition and is required. Looked in:\n  "
+        + "\n  ".join(tried)
+        + "\n\nRun from a checkout, or set WISP_ASSETS to the asset pack."
+    )
 
 
 g = _load_source()
+ASSET_SOURCE = getattr(g, "__wisp_source_path__", None)
 
 # Pulled straight out of the source file so there is exactly one definition.
 BODY = g.BODY

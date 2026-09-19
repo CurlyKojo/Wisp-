@@ -78,6 +78,15 @@ class WispFace:
     def transitioning(self):
         return self._transition > 0.0
 
+    @property
+    def content_rect(self):
+        """Bounding box of everything any state can draw, with motion headroom.
+
+        Useful for cropping exports down to the character instead of shipping
+        a screenful of empty background.
+        """
+        return pygame.Rect(self._dirty)
+
     def set_state(self, state, immediate=False):
         """Switch state. Cross-fades over ~200 ms unless ``immediate``."""
         if state not in geo.STATES:

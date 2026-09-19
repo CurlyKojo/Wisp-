@@ -99,8 +99,13 @@ def mouth_envelope(t, period=0.6):
     return max(0.0, math.sin(t / period * 2.0 * math.pi)) ** 0.7
 
 
-def render_frames(state, fps, scale, transparent, cache_dir=None):
-    """Render one full loop of a state. Returns a list of PIL images."""
+def render_frames(state, fps, scale, transparent, cache_dir=None, crop=False):
+    """Render one full loop of a state. Returns a list of PIL images.
+
+    ``crop`` trims every frame to the character's bounding box rather than the
+    whole 800x480 screen. Same animation, much less empty background -- worth
+    it for sheets that get scaled up in a UI.
+    """
     layout = Layout(width=int(800 * scale), height=int(480 * scale))
     layout.scale = 1.5 * scale
     layout.origin = (250.0 * scale, 48.0 * scale)
@@ -128,6 +133,11 @@ def render_frames(state, fps, scale, transparent, cache_dir=None):
             face.update(dt)
             settle += dt
 
+    box = None
+    if crop:
+        r = face.content_rect
+        box = (r.left, r.top, r.right, r.bottom)
+
     flags = pygame.SRCALPHA if transparent else 0
     canvas = pygame.Surface(layout.size, flags)
     frames = []
@@ -139,14 +149,22 @@ def render_frames(state, fps, scale, transparent, cache_dir=None):
         face.update(dt)
         face.draw(canvas)
         mode = "RGBA" if transparent else "RGB"
-        frames.append(Image.frombytes(
+        img = Image.frombytes(
             mode, layout.size, pygame.image.tostring(canvas, mode)
-        ))
+        )
+        if box is not None:
+            img = img.crop(box)
+        frames.append(img)
     return frames
 
 
-def write_sheet(frames, path, columns=None):
-    """Lay frames out in a grid and save one PNG."""
+def write_sheet(frames, path, columns=None, quality=88):
+    """Lay frames out in a grid and save one sheet.
+
+    Format comes from the extension. WebP is a lot kinder to Wisp's gradients
+    than PNG -- the listening sheet, whose halo changes on every frame, goes
+    from 1.5 MB to a fraction of that.
+    """
     w, h = frames[0].size
     columns = columns or min(len(frames), 8)
     rows = math.ceil(len(frames) / columns)
@@ -155,7 +173,10 @@ def write_sheet(frames, path, columns=None):
                       (0, 0, 0, 0) if mode == "RGBA" else (0, 0, 0))
     for i, frame in enumerate(frames):
         sheet.paste(frame, ((i % columns) * w, (i // columns) * h))
-    sheet.save(path)
+    if path.lower().endswith(".webp"):
+        sheet.save(path, quality=quality, method=6)
+    else:
+        sheet.save(path)
     return sheet.size, (columns, rows)
 
 
@@ -186,6 +207,12 @@ def main(argv=None):
                     help="frames per sheet row (default: up to 8)")
     ap.add_argument("--transparent", action="store_true",
                     help="no background, for compositing in the app")
+    ap.add_argument("--crop", action="store_true",
+                    help="trim frames to the character instead of the whole screen")
+    ap.add_argument("--format", default="png", choices=["png", "webp"],
+                    help="sheet format; webp is much smaller for the gradients")
+    ap.add_argument("--quality", type=int, default=88,
+                    help="webp quality (ignored for png)")
     ap.add_argument("--no-gif", dest="gif", action="store_false", default=True)
     ap.add_argument("--cache-dir", default=None)
     args = ap.parse_args(argv)
@@ -197,9 +224,9 @@ def main(argv=None):
     manifest = []
     for state in args.states:
         frames = render_frames(state, args.fps, args.scale, args.transparent,
-                               cache_dir=args.cache_dir)
-        sheet_path = os.path.join(args.out, f"wisp-{state}.png")
-        size, grid = write_sheet(frames, sheet_path, args.columns)
+                               cache_dir=args.cache_dir, crop=args.crop)
+        sheet_path = os.path.join(args.out, f"wisp-{state}.{args.format}")
+        size, grid = write_sheet(frames, sheet_path, args.columns, args.quality)
         line = (f"{state:10s} {len(frames):3d} frames  "
                 f"{frames[0].size[0]}x{frames[0].size[1]}  "
                 f"grid {grid[0]}x{grid[1]}  sheet {size[0]}x{size[1]}  "

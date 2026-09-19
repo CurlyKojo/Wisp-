@@ -1,0 +1,95 @@
+{
+  "fps": 20,
+  "states": [
+    {
+      "state": "idle",
+      "sheet": "wisp-idle.webp",
+      "frames": 60,
+      "frame_size": [
+        327,
+        292
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "fps": 20,
+      "loop_seconds": 3.0
+    },
+    {
+      "state": "listening",
+      "sheet": "wisp-listening.webp",
+      "frames": 64,
+      "frame_size": [
+        327,
+        292
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "fps": 20,
+      "loop_seconds": 3.2
+    },
+    {
+      "state": "thinking",
+      "sheet": "wisp-thinking.webp",
+      "frames": 120,
+      "frame_size": [
+        327,
+        292
+      ],
+      "grid": [
+        8,
+        15
+      ],
+      "fps": 20,
+      "loop_seconds": 6.0
+    },
+    {
+      "state": "speaking",
+      "sheet": "wisp-speaking.webp",
+      "frames": 60,
+      "frame_size": [
+        327,
+        292
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "fps": 20,
+      "loop_seconds": 3.0
+    },
+    {
+      "state": "happy",
+      "sheet": "wisp-happy.webp",
+      "frames": 60,
+      "frame_size": [
+        327,
+        292
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "fps": 20,
+      "loop_seconds": 3.0
+    },
+    {
+      "state": "sleepy",
+      "sheet": "wisp-sleepy.webp",
+      "frames": 96,
+      "frame_size": [
+        327,
+        292
+      ],
+      "grid": [
+        8,
+        12
+      ],
+      "fps": 20,
+      "loop_seconds": 4.8
+    }
+  ]
+}
